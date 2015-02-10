@@ -2,8 +2,16 @@
   <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script src="js/kickstart.js"></script> <!-- KICKSTART -->
+    <script src="js/math.min.js"></script>
+    <script type="text/javascript">
+      math.config({
+        number: 'bignumber', // Default to "bignumber" for enhanced precision
+        precision: 16
+      });
+    </script>
+    <script src="js/fraction.js"></script>
     <link rel="stylesheet" href="css/kickstart.css" media="all" /> <!-- KICKSTART -->
-    <link rel="stylesheet" href="stylesheet.css" media="all" />
+    <link rel="stylesheet" href="css/stylesheet.css" media="all" />
   </head>
   <body>
   <div class="grid">
@@ -14,6 +22,152 @@
         off a quick proof of concept more than really full-featured applicaions.
       </p>
     </div>
+
+
+    <div class="col_1"><h4>Newton's Binomial Theorem</h4></div>
+    <div class="col_1"></div>
+    <div class="col_10">
+      <ul class="tabs left">
+        <li><a href="#tab_nsq_about">About</a></li>
+        <li><a href="#tab_nsq_roots">Extracting Roots</a></li>
+      </ul>
+
+      <div id="tab_nsq_about" class="tab-content">
+        From "A Journey Through Genius", by William Dunham, Chapter 7.<br />
+
+        <p>
+          Newton wrote, regarding the binomial expansion (a+b)^n:<br />
+          (P+PQ)^(m/n) = p^(m/n) + (m/n)AQ + ((m-n)/(2n))BQ) + ((m-2n)/(3n)CQ) + ((m-3n)/(4n)DQ) + ...<br />
+          Newton knew he could use this to calculate square roots because:  a^(1/n) = nthrt(a)
+        </p>
+
+        <p>
+        The book suggests the following equation:<br />
+        sqrt(1-x) = 1 - (1/2)x - (1/8)x^2 - (1/16)x^3 - (5/12)x^4 - ... <br />
+        <b>Example: (Find sqrt(7))</b><br />
+        7 = 9(7/9) = 9(1-2/9)<br />
+        so: sqrt(7) = sqrt(9*(1-(2/9))) = 3*sqrt(1-(2/9))<br />
+        Then we replace the square root with first 6 terms of the binomial expansion:<br />
+        sqrt(7) = 3(1 - 1/9 - 1/162 - 1/1458 - 5/52488 - 7/472392) = 2.64576...
+        </p>
+      </div>
+      <script type="text/javascript">
+        /**
+         * Get the n'th iteration's leading fraction.
+         * Which will be the ((((1/2)...(1/2-(n-1)))/(n-2))*x^n) part (without the x^n)
+         */
+        function er_getnthleadingfrac(n) {
+          // We'll re-use the 1/2 a lot, plus it's the first component of the result
+          var h = math.divide(1,2);
+          var ret = h;
+          // We need to add a (1/2)-n component for every n up to n-1
+          for(var i=1; i<n; i++) {
+            // multiply in the (1/2)-i component
+            ret = math.multiply( ret, math.subtract(h, i) );
+          }
+
+          ret = math.divide(ret, math.eval(n+"!"));
+
+          return ret;
+        }
+
+
+        /**
+         * Calculates the entire value of the nth element.
+         */
+        function er_getnthvalueforx(n,x) {
+          var tFrac = er_getnthleadingfrac(n);
+          var xPart = math.pow(x.toNumber(), n);
+          var res = math.multiply(tFrac,xPart);
+
+          console.log("Getting nth value for x: (n: "+n+", x: "+x+")");
+          console.log("  tFrac: "+tFrac+", xPart: "+xPart);
+          console.log("  Which gives: "+res+"  ("+(new Fraction(res).snap().toString())+")");
+
+          return res;
+        }
+
+
+        /**
+         * Iterate the calculation the requested number of times and display the result
+         */
+        function er_doIterate() {
+          var droot = document.getElementById("er_root").value;
+          var coef  = document.getElementById("er_coef").value;
+          var numer = document.getElementById("er_numer").value;
+          var divis = document.getElementById("er_divis").value;
+          var iters = document.getElementById("er_iters").value;
+
+          var dRes  = document.getElementById("er_result");
+
+          var frac = math.eval(numer+"/"+divis);
+          var f_frac = new Fraction(math.eval(numer).toNumber(), math.eval(divis).toNumber());
+
+          var iteratedResult = 1 + math.chain(math.divide(1,2)).multiply(frac).done();
+          var expStr = "1 + (1/2)("+f_frac+") + ";
+          var simpStr = "1 + " + (new Fraction(1,2).multiply(f_frac)) + " + ";
+          // Loop through the number of iterations requested, building the string for the full calculation
+          for(var i=2; i<=iters; i++) {
+            var nthFrac = er_getnthleadingfrac(i);
+            var f_nthFrac = new Fraction(nthFrac.toNumber());
+            var nthVal = er_getnthvalueforx(i, frac);
+            console.log("Iteration "+i);
+            console.log("  nthFrac is: "+nthFrac+"  ("+f_nthFrac+")");
+            console.log("  Result starts as: "+iteratedResult);
+            console.log("  valueforx: "+nthVal+"  ("+(new Fraction(nthVal).snap(null, 0.001).toString())+")");
+            console.log("  ");
+
+            iteratedResult += math.multiply(nthFrac, math.pow(math.multiply(frac, -1), i));
+
+            expStr += "("+f_nthFrac.toString() + ")*(-"+ f_frac.toString() +")^"+i;
+
+            simpStr += (new Fraction(nthVal).toString());
+
+            if(i<iters) {
+              expStr += " + ";
+              simpStr += " + ";
+            }
+          }
+
+
+
+
+          htRes = "";
+          htRes += "<b>!!! NOTE: NOT CORRECT!</b> Rounding errors abound!<br />";
+          htRes += "<b>Verify the sqrt(1-x) expansion used:</b><br/> "+expStr+"<br />";
+          htRes += "<br />";
+          //htRes += "<b>so sqrt(1-"+x+") is:</b> " + fullStr + "<br />";
+          htRes += "<b>Which simplifies to:</b><br /> " + simpStr + "<br />";
+          htRes += "<b>Which is:</b><br /> "+iteratedResult+"<br />";
+          htRes += "<b>Multiply that by the coefficient ("+coef+") to get evaluated value:</b><br />";
+          htRes += math.multiply(math.eval(iteratedResult), 3) + "<br />";
+          htRes += "Compare this to the calculated value of sqrt("+droot+"):<br /> "+math.sqrt(math.eval(droot));
+
+          dRes.innerHTML = htRes;
+        }
+
+      </script>
+      <div id="tab_nsq_roots" class="tab-content">
+        To calculate roots we'll use the binomial expansion discussed, where m=1 and n=2
+        <p>
+          First, you must convert your root into sqrt(1-x) form. ex: sqrt(7) = 3*sqrt(1-(2/9))<br />
+          <br />
+          <label for="er_root">Desired Root:</label><br />
+          sqrt(<input id="er_root" type="text" size="3" placeholder="7"/>) <br />
+
+          <label>Enter values for expanded form:</label><br />
+          <input id="er_coef" type="text" size="3" placeholder="3" />sqrt(1-<input id="er_numer" type="text" size="3" placeholder="2" />/<input id="er_divis" type="text" size="3" placeholder="9" />)<br />
+          Calculate up to the x^<input id="er_iters" type="text" size="3" /> expansion<br />
+          <button class="small" onClick="er_doIterate();">Calculate</button>
+
+          <div id="er_result">
+
+          </div>
+        </p>
+      </div>
+    </div>
+
+
   </div>
   </body>
 </html>
